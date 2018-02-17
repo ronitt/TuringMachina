@@ -1,0 +1,22 @@
+{
+  "name": "tm_rpi",
+  "version": "1.0.0",
+  "description": "lol who knows",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "rpi",
+    "lol",
+    "kirsty",
+    "turingmachine",
+    "robot",
+    "arm"
+  ],
+  "author": "kirsty",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "serialport": "^6.0.5"
+  }
+}
