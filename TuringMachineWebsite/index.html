@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="leap-0.6.4.js"></script>
+  <script
+  src="http://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"></script>
+  <script>
+
+  function SubForm (){
+    $.ajax({
+        url:'https://api.particle.io/v1/devices/550040000f51353433323633/sendmessage',
+        type:'post',
+        data:$('#formy').serialize(),
+        success:function(){
+            // alert("worked");
+        }
+    });
+}
+
+  function post(path, params, method) {
+    method = method || "post"; // Set method to post by default if not specified.
+
+    // The rest of this code assumes you are not using a library.
+    // It can be made less wordy if you use one.
+    var form = document.createElement("form");
+    form.setAttribute("method", method);
+    form.setAttribute("action", path);
+    form.setAttribute("id", "formy");
+
+    for(var key in params) {
+        if(params.hasOwnProperty(key)) {
+            var hiddenField = document.createElement("input");
+            hiddenField.setAttribute("type", "hidden");
+            hiddenField.setAttribute("name", key);
+            hiddenField.setAttribute("value", params[key]);
+
+            form.appendChild(hiddenField);
+        }
+    }
+
+    document.body.appendChild(form);
+    // form.submit();
+    SubForm();
+    document.body.removeChild(form);
+
+  }
+  //-----------------------------------------------------------
+  //------------------------------------------------------------
+
+  $(document).ready(function() {
+
+    //-----------------------------------------------------------
+    function moveFinger(Finger, posX, posY, posZ) {
+      Finger.style.webkitTransform = "translate3d("+posX+"px, "+posY+"px, "+posZ+"px)";
+    }
+
+    function moveSphere(Sphere, posX, posY, posZ, rotX, rotY, rotZ) {
+      Sphere.style.webkitTransform = Sphere.style.mozTransform =
+      Sphere.style.transform = "translateX("+posX+"px) translateY("+posY+"px) translateZ("+posZ+"px) rotateX("+rotX+"deg) rotateY(0deg) rotateZ(0deg)";
+    }
+
+    var fingers = {};
+    var spheres = {};
+    Leap.loop(function(frame) {
+      var seenFingers = {};
+      var handIds = {};
+      if (frame.hands === undefined ) {
+        var handsLength = 0
+      } else {
+        var handsLength = frame.hands.length;
+      }
+
+      for (var handId = 0, handCount = handsLength; handId != handCount; handId++) {
+        var hand = frame.hands[handId];
+        var posX = (hand.palmPosition[0]*3);
+        var posY = (hand.palmPosition[2]*3)-200;
+        var posZ = (hand.palmPosition[1]*3)-400;
+        var rotX = (hand._rotation[2]*90);
+        var rotY = (hand._rotation[1]*90);
+        var rotZ = (hand._rotation[0]*90);
+        var sphere = spheres[hand.id];
+        if (!sphere) {
+          var sphereDiv = document.getElementById("sphere").cloneNode(true);
+          sphereDiv.setAttribute('id',hand.id);
+          sphereDiv.style.backgroundColor='#'+Math.floor(Math.random()*16777215).toString(16);
+          document.getElementById('scene').appendChild(sphereDiv);
+          spheres[hand.id] = hand.id;
+        } else {
+          var sphereDiv =  document.getElementById(hand.id);
+          if (typeof(sphereDiv) != 'undefined' && sphereDiv != null) {
+            moveSphere(sphereDiv, posX, posY, posZ, rotX, rotY, rotZ);
+          }
+        }
+        handIds[hand.id] = true;
+      }
+      for (handId in spheres) {
+        if (!handIds[handId]) {
+          var sphereDiv =  document.getElementById(spheres[handId]);
+          sphereDiv.parentNode.removeChild(sphereDiv);
+          delete spheres[handId];
+        }
+      }
+
+      for (var pointableId = 0, pointableCount = frame.pointables.length; pointableId != pointableCount; pointableId++) {
+        var pointable = frame.pointables[pointableId];
+        var newFinger = false;
+        if (pointable.finger) {
+          if (!fingers[pointable.id]) {
+            fingers[pointable.id] = [];
+            newFinger = true;
+          }
+
+          for (var partId = 0, length; partId != 4; partId++) {
+            var posX = (pointable.positions[partId][0]*3);
+            var posY = (pointable.positions[partId][2]*3)-200;
+            var posZ = (pointable.positions[partId][1]*3)-400;
+
+            var id = pointable.id+'_'+partId;
+
+            var finger = fingers[id];
+            if (newFinger) {
+              var fingerDiv = document.getElementById("finger").cloneNode(true);
+              fingerDiv.setAttribute('id', id);
+              fingerDiv.style.backgroundColor='#'+Math.floor(pointable.type*500).toString(16);
+              document.getElementById('scene').appendChild(fingerDiv);
+              fingers[pointable.id].push(id);
+            } else  {
+              var fingerDiv =  document.getElementById(id);
+              if (typeof(fingerDiv) != 'undefined' && fingerDiv != null) {
+                moveFinger(fingerDiv, posX, posY, posZ);
+              }
+            }
+            seenFingers[pointable.id] = true;
+          }
+
+          //var dirX = -(pointable.direction[1]*90);
+          //var dirY = -(pointable.direction[2]*90);
+          //var dirZ = (pointable.direction[0]*90);
+        }
+      }
+      for (var fingerId in fingers) {
+        if (!seenFingers[fingerId]) {
+          var ids = fingers[fingerId];
+          for (var index in ids) {
+            var fingerDiv =  document.getElementById(ids[index]);
+            fingerDiv.parentNode.removeChild(fingerDiv);
+          }
+          delete fingers[fingerId];
+        }
+      }
+      document.getElementById('showHands').addEventListener('mousedown', function() {
+        document.getElementById('app').setAttribute('class','show-hands');
+      }, false);
+      document.getElementById('hideHands').addEventListener('mousedown', function() {
+        document.getElementById('app').setAttribute('class','');
+      }, false);
+    });
+    //------------------------------------------------------------
+
+
+    window.controller = new Leap.Controller({enableGestures: true});
+
+    var swiper = controller.gesture('swipe');
+
+    var tolerance = 80;
+    var cooloff = 300;
+
+    var x = 2, y = 2;
+
+    var updateHighlight = function() {
+      $('.grid div').removeClass('highlight');
+      $('.grid #d'+x+"_"+y).addClass('highlight');
+    }
+
+    var shoulderElbow_Up = function() {
+      console.log('up');
+      post("https://api.particle.io/v1/devices/550040000f51353433323633/sendmessage", {access_token: "39e13947ab59e358dfa3f2ffc3d09e370c4231f5", args: "A1"});
+    }
+
+    var shoulderElbow_Down = function() {
+      console.log('down');
+      post("https://api.particle.io/v1/devices/550040000f51353433323633/sendmessage", {access_token: "39e13947ab59e358dfa3f2ffc3d09e370c4231f5", args: "B1"});
+
+    }
+
+    var rotLeft = function() {
+      console.log('left');
+      post("https://api.particle.io/v1/devices/550040000f51353433323633/sendmessage", {access_token: "39e13947ab59e358dfa3f2ffc3d09e370c4231f5", args: "C1"});
+
+    }
+
+    var rotRight = function() {
+      console.log('right');
+      post("https://api.particle.io/v1/devices/550040000f51353433323633/sendmessage", {access_token: "39e13947ab59e358dfa3f2ffc3d09e370c4231f5", args: "D1"});
+
+    }
+
+    var slider = _.debounce(function(xDir, yDir) {
+      var x_old = x;
+      x += xDir;
+      x = (x + 5) % 5;
+
+      var y_old = y;
+      y += yDir;
+      y = (y + 5) % 5;
+      if (y > y_old && x == x_old){
+        shoulderElbow_Down();
+      } else if (y < y_old && x == x_old){
+        shoulderElbow_Up();
+      } else if (x > x_old && y == y_old){
+        // console.log('up dogs');
+        rotRight();
+      } else if (x < x_old && y == y_old){
+        rotLeft();
+      }
+      console.log("x:"+x);
+      console.log("y:"+y);
+
+      console.log('.grid #d'+x+"_"+y);
+      updateHighlight();
+    }, cooloff);
+
+    swiper.update(function(g) {
+      if (Math.abs(g.translation()[0]) > tolerance || Math.abs(g.translation()[1]) > tolerance) {
+        var xDir = Math.abs(g.translation()[0]) > tolerance ? (g.translation()[0] > 0 ? -1 : 1) : 0;
+        var yDir = Math.abs(g.translation()[1]) > tolerance ? (g.translation()[1] < 0 ? -1 : 1) : 0;
+        slider(xDir, yDir);
+      }
+    });
+
+    controller.connect();
+    updateHighlight();
+  })
+
+  /*
+  <button onclick="controller.connection.enableGestures(true);">Enable Gestures</button>
+  <button onclick="controller.connection.enableGestures(false);">Disable Gestures</button>
+  <div class="grid">
+    <div id="d0_0"></div>
+    <div id="d1_0"></div>
+    <div id="d2_0"></div>
+    <div id="d3_0"></div>
+    <div id="d4_0"></div><br clear=both>
+    <div id="d0_1"></div>
+    <div id="d1_1"></div>
+    <div id="d2_1"></div>
+    <div id="d3_1"></div>
+    <div id="d4_1"></div><br clear=both>
+    <div id="d0_2"></div>
+    <div id="d1_2"></div>
+    <div id="d2_2"></div>
+    <div id="d3_2"></div>
+    <div id="d4_2"></div><br clear=both>
+    <div id="d0_3"></div>
+    <div id="d1_3"></div>
+    <div id="d2_3"></div>
+    <div id="d3_3"></div>
+    <div id="d4_3"></div><br clear=both>
+    <div id="d0_4"></div>
+    <div id="d1_4"></div>
+    <div id="d2_4"></div>
+    <div id="d3_4"></div>
+    <div id="d4_4"></div><br clear=both>
+  </div>
+  */
+  </script>
+  <style>
+  .highlight {
+    border: 5px red solid !important;
+  }
+
+  #slide {
+    background-color:white;
+    float: left;
+    width: 100%;
+    height: 100%;
+  }
+
+  .grid div {
+    width: 100px;
+    height: 100px;
+    float: left;
+    border: 5px black solid;
+  }
+
+  </style>
+</head>
+
+<style>
+  *,*:before,*:after {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+  }
+  button {
+    padding: .5em;
+  }
+  #app {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    font-size: 200%;
+    overflow: hidden;
+    background-color: #101010;
+    -webkit-perspective: 1000;
+  }
+  #scene,
+  #scene:before {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 40em;
+    height: 40em;
+    margin: -20em 0 0 -20em;
+    border: 4px solid #A0A0A0;
+    background-color: rgba(255,255,255,.1);
+    background-image:
+    -webkit-linear-gradient(rgba(255,255,255,.4) .1em, transparent .1em),
+    -webkit-linear-gradient(0deg, rgba(255,255,255,.4) .1em, transparent .1em),
+    -webkit-linear-gradient(rgba(255,255,255,.3) .05em, transparent .05em),
+    -webkit-linear-gradient(0deg, rgba(255,255,255,.3) .05em, transparent .05em);
+    background-size: 5em 5em, 5em 5em, 1em 1em, 1em 1em;
+    background-position: -.1em -.1em, -.1em -.1em, -.05em -.05em, -.05em -.05em;
+    transform-style: preserve-3d;
+    -moz-transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    transform: rotateX(75deg);
+    -moz-transform: rotateX(75deg);
+    -webkit-transform: rotateX(75deg);
+  }
+  #scene {
+    transform: rotateX(75deg);
+    -moz-transform: rotateX(75deg);
+    -webkit-transform: rotateX(75deg);
+  }
+  #scene:before {
+    content: '';
+    transform: rotateX(90deg) translateZ(19.5em) translateY(20em);
+    -moz-transform: rotateX(90deg) translateZ(19.5em) translateY(20em);
+    -webkit-transform: rotateX(90deg) translateZ(19.5em) translateY(20em);
+  }
+  .cube {
+    background-color: red;
+    transform-style: preserve-3d;
+    -moz-transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    transform: translateX(19.5em) translateY(19.5em) translateZ(0em);
+    -moz-transform: translateX(19.5em) translateY(19.5em) translateZ(0em);
+    -webkit-transform: translateX(19.5em) translateY(19.5em) translateZ(0em);
+  }
+  .finger,
+  .sphere {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1em;
+    height: 1em;
+    margin: -.5em 0 0 -.5em;
+    -webkit-transform-style: preserve-3d;
+    -moz-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+    -webkit-transform: translateX(14.5em) translateY(14.5em) translateZ(0);
+    -moz-transform: translateX(14.5em) translateY(14.5em) translateZ(0);
+    transform: translateX(14.5em) translateY(14.5em) translateZ(0);
+  }
+
+  .finger {
+    opacity: .8;
+  }
+
+  .sphere {
+    opacity: .3;
+    display: none;
+    font-size: 100px;
+  }
+
+  .show-hands .sphere {
+    display: block;
+  }
+
+  .face {
+    position: absolute;
+    width: 1em;
+    height: 1em;
+    background-color: inherit;
+    -webkit-transform-style: preserve-3d;
+    -moz-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+    -webkit-transform-origin: 0 0;
+    -moz-transform-origin: 0 0;
+    transform-origin: 0 0;
+    -webkit-box-shadow: inset 0 0 0 1px rgba(255,255,255,.9);
+    -moz-box-shadow: inset 0 0 0 1px rgba(255,255,255,.9);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.9);
+  }
+  .cube .face.tp {
+    -webkit-transform: translateZ(1em);
+    -moz-transform: translateZ(1em);
+    transform: translateZ(1em);
+  }
+  .cube .face.ft {
+    -webkit-transform: rotateX(90deg) translateZ(-1em);
+    -moz-transform: rotateX(90deg) translateZ(-1em);
+    transform: rotateX(90deg) translateZ(-1em);
+  }
+  .cube .face.bk {
+    -webkit-transform: rotateX(90deg);
+    -moz-transform: rotateX(90deg);
+    transform: rotateX(90deg);
+  }
+  .cube .face.lt {
+    -webkit-transform: rotateY(90deg) translateX(-1em);
+    -moz-transform: rotateY(90deg) translateX(-1em);
+    transform: rotateY(90deg) translateX(-1em);
+  }
+  .cube .face.rt {
+    -webkit-transform: rotateY(90deg) translateX(-1em) translateZ(1em);
+    -moz-transform: rotateY(90deg) translateX(-1em) translateZ(1em);
+    transform: rotateY(90deg) translateX(-1em) translateZ(1em);
+  }
+
+  .finger .face.tp {
+    -webkit-transform: translateZ(1em);
+    -moz-transform: translateZ(1em);
+    transform: translateZ(1em);
+    height: 3em;
+  }
+  .finger .face.ft {
+    -webkit-transform: rotateX(90deg) translateZ(-3em);
+    -moz-transform: rotateX(90deg) translateZ(-3em);
+    transform: rotateX(90deg) translateZ(-3em);
+  }
+  .finger .face.bk {
+    -webkit-transform: rotateX(90deg);
+    -moz-transform: rotateX(90deg);
+    transform: rotateX(90deg);
+  }
+  .finger .face.lt {
+    -webkit-transform: rotateY(90deg) translateX(-1em);
+    -moz-transform: rotateY(90deg) translateX(-1em);
+    transform: rotateY(90deg) translateX(-1em);
+    height: 3em;
+  }
+  .finger .face.rt {
+    -webkit-transform: rotateY(90deg) translateX(-1em) translateZ(1em);
+    -moz-transform: rotateY(90deg) translateX(-1em) translateZ(1em);
+    transform: rotateY(90deg) translateX(-1em) translateZ(1em);
+    height: 3em;
+  }
+
+</style>
+  <meta charset="utf-8">
+  <title>The Turing Machine</title>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <meta content="" name="keywords">
+  <meta content="" name="description">
+
+  <!-- Favicons -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,700|Open+Sans:300,300i,400,400i,700,700i" rel="stylesheet">
+
+  <!-- Bootstrap CSS File -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Libraries CSS Files -->
+  <link href="lib/animate/animate.min.css" rel="stylesheet">
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+  <link href="lib/ionicons/css/ionicons.min.css" rel="stylesheet">
+  <link href="lib/magnific-popup/magnific-popup.css" rel="stylesheet">
+
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+  <!-- =======================================================
+    Theme Name: Avilon
+    Theme URL: https://bootstrapmade.com/avilon-bootstrap-landing-page-template/
+    Author: BootstrapMade.com
+    License: https://bootstrapmade.com/license/
+  ======================================================= -->
+</head>
+
+<body>
+
+  <!--==========================
+    Header
+  ============================-->
+  <header id="header">
+    <div class="container">
+
+      <div id="logo" class="pull-left">
+        <h1><a href="#intro" class="scrollto">The Turing Machine</a></h1>
+        <!-- Uncomment below if you prefer to use an image logo -->
+        <!-- <a href="#intro"><img src="img/logo.png" alt="" title=""></a> -->
+      </div>
+
+      <nav id="nav-menu-container">
+        <ul class="nav-menu">
+          <li class="menu-active"><a href="#intro">Home</a></li>
+          <li><a href="#about">About Us</a></li>
+          <li><a href="#team">Team</a></li>
+          <li><a href="#contact">Contact Us</a></li>
+        </ul>
+      </nav><!-- #nav-menu-container -->
+    </div>
+  </header><!-- #header -->
+
+  <!--==========================
+    Intro Section
+  ============================-->
+  <section id="intro">
+
+    <div class="intro-text">
+      <h2>Our CalgaryHacks 2018 Submission</h2>
+      <p>Long Range Artificial Limb Motion Control</p>
+      <a href="#about" class="btn-get-started scrollto">Get Started</a>
+    </div>
+
+    <div class="product-screens">
+
+      <div class="product-screen-1 wow fadeInUp" data-wow-delay="0.4s" data-wow-duration="0.6s">
+        <img src="img/product-screen-1.png" alt="">
+      </div>
+
+      <div class="product-screen-2 wow fadeInUp" data-wow-delay="0.2s" data-wow-duration="0.6s">
+        <img src="img/product-screen-2.png" alt="">
+      </div>
+
+      <div class="product-screen-3 wow fadeInUp" data-wow-duration="0.6s">
+        <img src="img/product-screen-3.png" alt="">
+      </div>
+
+    </div>
+
+  </section><!-- #intro -->
+
+  <main id="main">
+
+    <!--==========================
+      About Us Section
+    ============================-->
+    <section id="about" class="section-bg">
+      <div class="container-fluid">
+        <div class="section-header">
+          <h3 class="section-title">About Us</h3>
+          <span class="section-divider"></span>
+          <p class="section-description">
+            We are a handful of University of Calgary students with a passion for hacking with backgrounds<br>
+            spanning from pure and applied mathematics to electrical and software engineering
+          </p>
+        </div>
+
+        <div class="row">
+          <!--<div class="col-lg-6 about-img wow fadeInLeft">
+            <img src="img/about-img.jpg" alt="">
+          </div>-->
+
+          <div class="col-lg-6 content wow fadeInRight">
+
+      </div>
+    </section><!-- #about -->
+
+    <!--==========================
+      Product Features Section
+    ============================-->
+    <section id="features">
+      <div class="container">
+
+        <div class="row">
+
+          <div class="col-lg-8 offset-lg-4">
+            <div class="section-header wow fadeIn" data-wow-duration="1s">
+              <h3 class="section-title">Product Features</h3>
+              <span class="section-divider"></span>
+            </div>
+          </div>
+
+          <div class="col-lg-4 col-md-5 features-img">
+            <img src="img/arm.jpg" alt="" class="wow fadeInLeft">
+          </div>
+
+          <div class="col-lg-8 col-md-7 ">
+
+            <div class="row">
+
+              <div class="col-lg-6 col-md-6 box wow fadeInRight">
+                <div class="icon"><i class="ion-ios-speedometer-outline"></i></div>
+                <h4 class="title"><a href="">Long Range Network</a></h4>
+                <p class="description">Communication via the Telus cellular network enables a client facing front end to connect to our system from anywhere in the world.</p>
+              </div>
+              <div class="col-lg-6 col-md-6 box wow fadeInRight" data-wow-delay="0.1s">
+                <div class="icon"><i class="ion-ios-flask-outline"></i></div>
+                <h4 class="title"><a href="">Real Time Communication</a></h4>
+                <p class="description">Our system offers real time control over the hardware, perfect when you're away from home.</p>
+              </div>
+              <div class="col-lg-6 col-md-6 box wow fadeInRight data-wow-delay="0.2s">
+                <div class="icon"><i class="ion-social-buffer-outline"></i></div>
+                <h4 class="title"><a href="">Leap Motion Gesture Control</a></h4>
+                <p class="description">Using a Leap Motion Controller, users can control the system via hand gestures.</p>
+              </div>
+              <div class="col-lg-6 col-md-6 box wow fadeInRight" data-wow-delay="0.3s">
+                <div class="icon"><i class="ion-ios-analytics-outline"></i></div>
+                <h4 class="title"><a href="">SAINSMART Robotic Arm</a></h4>
+                <p class="description">Offers control over a 6-axis multifunctional robotic arm.</p>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section><!-- #features -->
+
+    <!--==========================
+      Product Advanced Featuress Section
+    ============================-->
+    <section id="advanced-features">
+
+      <div class="features-row section-bg">
+        <div class="container">
+          <div class="row">
+            <div class="col-12">
+              <div id="app" class="show-hands">
+                <button id="showHands">Show Hands</button>
+                <button id="hideHands">hide Hands</button>
+                <div id="scene">
+                  <!-- <div id="cube" class="cube">
+                    <div class="face tp"></div>
+                    <div class="face lt"></div>
+                    <div class="face rt"></div>
+                    <div class="face ft"></div>
+                    <div class="face bk"></div>
+                  </div> -->
+                  <div id="finger" class="cube finger">
+                    <div class="face tp"></div>
+                    <div class="face lt"></div>
+                    <div class="face rt"></div>
+                    <div class="face ft"></div>
+                    <div class="face bk"></div>
+                  </div>
+                  <div id="sphere" class="cube sphere">
+                    <div class="face tp"></div>
+                    <div class="face lt"></div>
+                    <div class="face rt"></div>
+                    <div class="face ft"></div>
+                    <div class="face bk"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="grid">
+                <div id="d0_0"></div>
+                <div id="d1_0"></div>
+                <div id="d2_0"></div>
+                <div id="d3_0"></div>
+                <div id="d4_0"></div><br clear=both>
+                <div id="d0_1"></div>
+                <div id="d1_1"></div>
+                <div id="d2_1"></div>
+                <div id="d3_1"></div>
+                <div id="d4_1"></div><br clear=both>
+                <div id="d0_2"></div>
+                <div id="d1_2"></div>
+                <div id="d2_2"></div>
+                <div id="d3_2"></div>
+                <div id="d4_2"></div><br clear=both>
+                <div id="d0_3"></div>
+                <div id="d1_3"></div>
+                <div id="d2_3"></div>
+                <div id="d3_3"></div>
+                <div id="d4_3"></div><br clear=both>
+                <div id="d0_4"></div>
+                <div id="d1_4"></div>
+                <div id="d2_4"></div>
+                <div id="d3_4"></div>
+                <div id="d4_4"></div><br clear=both>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section><!-- #advanced-features -->
+
+
+    <!--==========================
+      Our Team Section
+    ============================-->
+    <section id="team" class="section-bg">
+      <div class="container">
+        <div class="section-header">
+          <h3 class="section-title">Our Team</h3>
+          <span class="section-divider"></span>
+          <p class="section-description"></p>
+        </div>
+        <div class="row wow fadeInUp">
+          <div class="col-lg-2 col-md-6">
+            <div class="member">
+              <div class="pic"><img src="img/team/ron.jpg" alt=""></div>
+              <h4>Ron Ittyipe</h4>
+              <span>Computer Engineering</span>
+            </div>
+          </div>
+
+          <div class="col-lg-2 col-md-6">
+            <div class="member">
+              <div class="pic"><img src="img/team/jared.jpg" alt=""></div>
+              <h4>Jared Gillis</h4>
+              <span>Electrical Engineering</span>
+            </div>
+          </div>
+
+          <div class="col-lg-2 col-md-6">
+            <div class="member">
+              <div class="pic"><img src="img/team/kirsty.jpg" alt=""></div>
+              <h4>Kirsty Chau</h4>
+              <span>Electrical Engineering</span>
+            </div>
+          </div>
+
+          <div class="col-lg-2 col-md-6">
+            <div class="member">
+              <div class="pic"><img src="img/team/paul.jpg" alt=""></div>
+              <h4>Paul Chen</h4>
+              <span>Software Engineering</span>
+            </div>
+          </div>
+
+		  <div class="col-lg-2 col-md-6">
+            <div class="member">
+              <div class="pic"><img src="img/team/ander.jpg" alt=""></div>
+              <h4>André De Waal</h4>
+              <span>Pure and Applied Math</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section><!-- #team -->
+
+
+    <!--==========================
+      Contact Section
+    ============================-->
+    <section id="contact">
+      <div class="container">
+        <div class="row wow fadeInUp">
+
+          <div class="col-lg-4 col-md-4">
+            <div class="contact-about">
+              <h3>The Turing Machine</h3>
+              <p>Feel free to contact us for any interest in our project or other opportunities!</p>
+            </div>
+          </div>
+
+          <div class="col-lg-3 col-md-4">
+            <div class="info">
+              <div>
+                <i class="ion-ios-location-outline"></i>
+                <p>2500 University Dr NW<br>Calgary, AB</p>
+              </div>
+
+              <div>
+                <i class="ion-ios-email-outline"></i>
+                <p>ron.ittyipe@ucalgary.ca</p>
+              </div>
+
+              <div>
+                <i class="ion-ios-telephone-outline"></i>
+                <p>403-554-0320</p>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="col-lg-5 col-md-8">
+            <div class="form">
+              <div id="sendmessage">Your message has been sent. Thank you!</div>
+              <div id="errormessage"></div>
+              <form action="" method="post" role="form" class="contactForm">
+                <div class="form-row">
+                  <div class="form-group col-lg-6">
+                    <input type="text" name="name" class="form-control" id="name" placeholder="Your Name" data-rule="minlen:4" data-msg="Please enter at least 4 chars" />
+                    <div class="validation"></div>
+                  </div>
+                  <div class="form-group col-lg-6">
+                    <input type="email" class="form-control" name="email" id="email" placeholder="Your Email" data-rule="email" data-msg="Please enter a valid email" />
+                    <div class="validation"></div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <input type="text" class="form-control" name="subject" id="subject" placeholder="Subject" data-rule="minlen:4" data-msg="Please enter at least 8 chars of subject" />
+                  <div class="validation"></div>
+                </div>
+                <div class="form-group">
+                  <textarea class="form-control" name="message" rows="5" data-rule="required" data-msg="Please write something for us" placeholder="Message"></textarea>
+                  <div class="validation"></div>
+                </div>
+                <div class="text-center"><button type="submit" title="Send Message">Send Message</button></div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section><!-- #contact -->
+
+  </main>
+
+  <!--==========================
+    Footer
+  ============================-->
+  <footer id="footer">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-6 text-lg-left text-center">
+          <div class="copyright">
+            &copy; Copyright <strong>Avilon</strong>. All Rights Reserved
+          </div>
+          <div class="credits">
+            <!--
+              All the links in the footer should remain intact.
+              You can delete the links only if you purchased the pro version.
+              Licensing information: https://bootstrapmade.com/license/
+              Purchase the pro version with working PHP/AJAX contact form: https://bootstrapmade.com/buy/?theme=Avilon
+            -->
+            Designed by <a href="https://bootstrapmade.com/">BootstrapMade</a>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <nav class="footer-links text-lg-right text-center pt-2 pt-lg-0">
+            <a href="#intro" class="scrollto">Home</a>
+            <a href="#about" class="scrollto">About</a>
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Use</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </footer><!-- #footer -->
+
+  <a href="#" class="back-to-top"><i class="fa fa-chevron-up"></i></a>
+
+  <!-- JavaScript Libraries -->
+  <script src="lib/jquery/jquery.min.js"></script>
+  <script src="lib/jquery/jquery-migrate.min.js"></script>
+  <script src="lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="lib/easing/easing.min.js"></script>
+  <script src="lib/wow/wow.min.js"></script>
+  <script src="lib/superfish/hoverIntent.js"></script>
+  <script src="lib/superfish/superfish.min.js"></script>
+  <script src="lib/magnific-popup/magnific-popup.min.js"></script>
+
+  <!-- Contact Form JavaScript File -->
+  <script src="contactform/contactform.js"></script>
+
+  <!-- Template Main Javascript File -->
+  <script src="js/main.js"></script>
+
+</body>
+</html>
