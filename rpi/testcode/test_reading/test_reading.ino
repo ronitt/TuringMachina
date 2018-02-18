@@ -1,14 +1,7 @@
-/*
- * serial_echo.pde
- * ----------------- 
- * Echoes what is sent back through the serial port.
- *
- * http://spacetinkerer.blogspot.com
- */
 
 int incomingByte = 0;    //for incoming serial data
 char incomingChar;
-char readword[] = "testing";
+char readword[] = "testing1";
 bool ireadit = false;
 int counter = 0;
 
@@ -22,15 +15,21 @@ void loop() {
     digitalWrite(LED_BUILTIN,LOW);
   if(ireadit)
      digitalWrite(LED_BUILTIN,HIGH);
+     ireadit = false;
   if (Serial.available() > 0) {
     // read the incoming byte:
     incomingByte = Serial.read();
+    //Serial.print(' ');  
     incomingChar = (char)incomingByte;
+    Serial.print(incomingChar);
     if(incomingChar == readword[counter] )
     {
         counter++;
-        if(incomingChar == '\0')
+        if(incomingChar == '1')
+            {
             ireadit = true;
+            Serial.print('got the null');
+             }
         else
             ireadit = false;
     }
