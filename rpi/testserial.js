@@ -1,7 +1,7 @@
 //test code for serial input 
 
 var SerialPort = require('serialport');
-var port = new SerialPort('/dev/ttyACMO',{ baudRate: 9600});
+var port = new SerialPort('/dev/ttyACM0',{ baudRate: 9600});
 
 port.write('main screen turn on', function(err) {
 	if (err) {
@@ -10,7 +10,7 @@ port.write('main screen turn on', function(err) {
 	}
 	console.log('message written');
 }
-};
+);
 
 //open errors will be emitted as an error event
 port.on('error', function(err) {
@@ -35,4 +35,4 @@ port.write('testing', function(err) {
 	}
 	console.log('test written');
 }
-};
+);
